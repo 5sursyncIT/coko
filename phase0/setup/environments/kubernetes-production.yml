@@ -1,0 +1,1461 @@
+# Configuration Kubernetes - Environnement Production
+# Projet Coko - Plateforme de lecture numérique pour l'Afrique
+
+---
+# Namespace Production
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: coko-production
+  labels:
+    environment: production
+    project: coko
+  annotations:
+    description: "Environnement de production pour la plateforme Coko"
+
+---
+# ConfigMap - Configuration générale
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coko-config
+  namespace: coko-production
+data:
+  # Configuration générale
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "info"
+  TZ: "Africa/Dakar"
+  LOCALE: "fr_SN"
+  
+  # URLs des services
+  API_BASE_URL: "https://api.coko.africa"
+  FRONTEND_URL: "https://coko.africa"
+  ADMIN_URL: "https://admin.coko.africa"
+  
+  # Configuration des services
+  JWT_ISSUER: "coko.africa"
+  JWT_AUDIENCE: "coko-api"
+  JWT_ACCESS_TOKEN_EXPIRY: "15m"
+  JWT_REFRESH_TOKEN_EXPIRY: "7d"
+  
+  # Limites et quotas
+  RATE_LIMIT_REQUESTS_PER_MINUTE: "1000"
+  MAX_FILE_UPLOAD_SIZE: "50MB"
+  MAX_CONCURRENT_DOWNLOADS: "5"
+  
+  # Configuration de cache
+  CACHE_TTL_DEFAULT: "300"
+  CACHE_TTL_BOOKS: "3600"
+  CACHE_TTL_USER_PROFILE: "900"
+
+---
+# ConfigMap - URLs des services
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-urls
+  namespace: coko-production
+data:
+  AUTH_SERVICE_URL: "http://auth-service:8080"
+  CATALOG_SERVICE_URL: "http://catalog-service:8080"
+  READING_SERVICE_URL: "http://reading-service:8080"
+  PAYMENT_SERVICE_URL: "http://payment-service:8080"
+  GAMIFICATION_SERVICE_URL: "http://gamification-service:8080"
+  COMMUNITY_SERVICE_URL: "http://community-service:8080"
+  ADMIN_SERVICE_URL: "http://admin-service:8080"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8080"
+
+---
+# ConfigMap - Configuration Redis
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: coko-production
+data:
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  REDIS_MAX_CONNECTIONS: "100"
+  REDIS_CONNECTION_TIMEOUT: "5s"
+  REDIS_READ_TIMEOUT: "3s"
+  REDIS_WRITE_TIMEOUT: "3s"
+
+---
+# ConfigMap - Configuration PostgreSQL
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: coko-production
+data:
+  POSTGRES_HOST: "postgres-service"
+  POSTGRES_PORT: "5432"
+  POSTGRES_MAX_CONNECTIONS: "50"
+  POSTGRES_CONNECTION_TIMEOUT: "30s"
+  POSTGRES_STATEMENT_TIMEOUT: "60s"
+  POSTGRES_IDLE_TIMEOUT: "300s"
+  
+  # Bases de données
+  AUTH_DB_NAME: "coko_auth"
+  CATALOG_DB_NAME: "coko_catalog"
+  READING_DB_NAME: "coko_reading"
+  PAYMENT_DB_NAME: "coko_payment"
+  GAMIFICATION_DB_NAME: "coko_gamification"
+  COMMUNITY_DB_NAME: "coko_community"
+
+---
+# ConfigMap - Configuration Elasticsearch
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-config
+  namespace: coko-production
+data:
+  ELASTICSEARCH_HOST: "elasticsearch-service"
+  ELASTICSEARCH_PORT: "9200"
+  ELASTICSEARCH_INDEX_BOOKS: "coko-books"
+  ELASTICSEARCH_INDEX_USERS: "coko-users"
+  ELASTICSEARCH_MAX_RETRIES: "3"
+  ELASTICSEARCH_TIMEOUT: "30s"
+
+---
+# ConfigMap - Configuration MinIO
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-config
+  namespace: coko-production
+data:
+  MINIO_ENDPOINT: "minio-service:9000"
+  MINIO_BUCKET_BOOKS: "coko-books"
+  MINIO_BUCKET_COVERS: "coko-covers"
+  MINIO_BUCKET_AVATARS: "coko-avatars"
+  MINIO_BUCKET_BACKUPS: "coko-backups"
+  MINIO_REGION: "us-west-2"
+
+---
+# ConfigMap - Configuration RabbitMQ
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rabbitmq-config
+  namespace: coko-production
+data:
+  RABBITMQ_HOST: "rabbitmq-service"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_MANAGEMENT_PORT: "15672"
+  RABBITMQ_VHOST: "/coko"
+  RABBITMQ_EXCHANGE_EVENTS: "coko.events"
+  RABBITMQ_QUEUE_NOTIFICATIONS: "notifications"
+  RABBITMQ_QUEUE_EMAILS: "emails"
+
+---
+# ConfigMap - Configuration Monitoring
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitoring-config
+  namespace: coko-production
+data:
+  PROMETHEUS_URL: "http://prometheus:9090"
+  JAEGER_ENDPOINT: "http://jaeger-collector:14268/api/traces"
+  METRICS_ENABLED: "true"
+  TRACING_ENABLED: "true"
+  HEALTH_CHECK_INTERVAL: "30s"
+
+---
+# Secret - Données sensibles
+apiVersion: v1
+kind: Secret
+metadata:
+  name: coko-secrets
+  namespace: coko-production
+type: Opaque
+data:
+  # JWT Secret (base64 encoded)
+  JWT_SECRET: "<base64-encoded-jwt-secret>"
+  
+  # Database passwords
+  POSTGRES_PASSWORD: "<base64-encoded-postgres-password>"
+  AUTH_DB_PASSWORD: "<base64-encoded-auth-db-password>"
+  CATALOG_DB_PASSWORD: "<base64-encoded-catalog-db-password>"
+  READING_DB_PASSWORD: "<base64-encoded-reading-db-password>"
+  PAYMENT_DB_PASSWORD: "<base64-encoded-payment-db-password>"
+  GAMIFICATION_DB_PASSWORD: "<base64-encoded-gamification-db-password>"
+  COMMUNITY_DB_PASSWORD: "<base64-encoded-community-db-password>"
+  
+  # Redis password
+  REDIS_PASSWORD: "<base64-encoded-redis-password>"
+  
+  # MinIO credentials
+  MINIO_ACCESS_KEY: "<base64-encoded-minio-access-key>"
+  MINIO_SECRET_KEY: "<base64-encoded-minio-secret-key>"
+  
+  # RabbitMQ credentials
+  RABBITMQ_USERNAME: "<base64-encoded-rabbitmq-username>"
+  RABBITMQ_PASSWORD: "<base64-encoded-rabbitmq-password>"
+  
+  # External API keys
+  ORANGE_MONEY_API_KEY: "<base64-encoded-orange-money-api-key>"
+  ORANGE_MONEY_SECRET: "<base64-encoded-orange-money-secret>"
+  WAVE_API_KEY: "<base64-encoded-wave-api-key>"
+  WAVE_SECRET: "<base64-encoded-wave-secret>"
+  STRIPE_SECRET_KEY: "<base64-encoded-stripe-secret-key>"
+  
+  # Email service
+  SMTP_PASSWORD: "<base64-encoded-smtp-password>"
+  
+  # SMS service
+  TWILIO_AUTH_TOKEN: "<base64-encoded-twilio-auth-token>"
+  
+  # Monitoring
+  GRAFANA_ADMIN_PASSWORD: "<base64-encoded-grafana-admin-password>"
+
+---
+# PersistentVolumeClaim - PostgreSQL
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: coko-production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 500Gi
+
+---
+# PersistentVolumeClaim - Redis
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: coko-production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+# PersistentVolumeClaim - Elasticsearch
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elasticsearch-pvc
+  namespace: coko-production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 200Gi
+
+---
+# PersistentVolumeClaim - MinIO
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+  namespace: coko-production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 1Ti
+
+---
+# Deployment - PostgreSQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: coko-production
+  labels:
+    app: postgres
+    tier: database
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+        tier: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          value: "postgres"
+        - name: POSTGRES_USER
+          value: "postgres"
+        ports:
+        - containerPort: 5432
+          name: postgres
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        - name: postgres-init
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+      - name: postgres-init
+        configMap:
+          name: postgres-init-scripts
+
+---
+# Service - PostgreSQL
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: coko-production
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres
+  selector:
+    app: postgres
+
+---
+# Deployment - Redis
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: coko-production
+  labels:
+    app: redis
+    tier: cache
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        tier: cache
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        command:
+        - redis-server
+        - --requirepass
+        - $(REDIS_PASSWORD)
+        - --maxmemory
+        - 2gb
+        - --maxmemory-policy
+        - allkeys-lru
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: REDIS_PASSWORD
+        ports:
+        - containerPort: 6379
+          name: redis
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: redis-storage
+        persistentVolumeClaim:
+          claimName: redis-pvc
+
+---
+# Service - Redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: coko-production
+  labels:
+    app: redis
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis
+  selector:
+    app: redis
+
+---
+# Deployment - Elasticsearch
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+  namespace: coko-production
+  labels:
+    app: elasticsearch
+    tier: search
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+        tier: search
+    spec:
+      containers:
+      - name: elasticsearch
+        image: elasticsearch:8.11.0
+        env:
+        - name: discovery.type
+          value: "single-node"
+        - name: ES_JAVA_OPTS
+          value: "-Xms2g -Xmx2g"
+        - name: xpack.security.enabled
+          value: "false"
+        ports:
+        - containerPort: 9200
+          name: http
+        - containerPort: 9300
+          name: transport
+        volumeMounts:
+        - name: elasticsearch-storage
+          mountPath: /usr/share/elasticsearch/data
+        resources:
+          requests:
+            memory: "3Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+          initialDelaySeconds: 30
+          periodSeconds: 10
+      volumes:
+      - name: elasticsearch-storage
+        persistentVolumeClaim:
+          claimName: elasticsearch-pvc
+
+---
+# Service - Elasticsearch
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-service
+  namespace: coko-production
+  labels:
+    app: elasticsearch
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9200
+    targetPort: 9200
+    name: http
+  - port: 9300
+    targetPort: 9300
+    name: transport
+  selector:
+    app: elasticsearch
+
+---
+# Deployment - MinIO
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: coko-production
+  labels:
+    app: minio
+    tier: storage
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+        tier: storage
+    spec:
+      containers:
+      - name: minio
+        image: minio/minio:latest
+        command:
+        - /bin/bash
+        - -c
+        args:
+        - minio server /data --console-address :9001
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: MINIO_ACCESS_KEY
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: MINIO_SECRET_KEY
+        ports:
+        - containerPort: 9000
+          name: api
+        - containerPort: 9001
+          name: console
+        volumeMounts:
+        - name: minio-storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 30
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: minio-storage
+        persistentVolumeClaim:
+          claimName: minio-pvc
+
+---
+# Service - MinIO
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-service
+  namespace: coko-production
+  labels:
+    app: minio
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9000
+    targetPort: 9000
+    name: api
+  - port: 9001
+    targetPort: 9001
+    name: console
+  selector:
+    app: minio
+
+---
+# Deployment - RabbitMQ
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: coko-production
+  labels:
+    app: rabbitmq
+    tier: messaging
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+        tier: messaging
+    spec:
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3-management-alpine
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: RABBITMQ_USERNAME
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: RABBITMQ_PASSWORD
+        - name: RABBITMQ_DEFAULT_VHOST
+          value: "/coko"
+        ports:
+        - containerPort: 5672
+          name: amqp
+        - containerPort: 15672
+          name: management
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - ping
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - check_port_connectivity
+          initialDelaySeconds: 20
+          periodSeconds: 10
+
+---
+# Service - RabbitMQ
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-service
+  namespace: coko-production
+  labels:
+    app: rabbitmq
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5672
+    targetPort: 5672
+    name: amqp
+  - port: 15672
+    targetPort: 15672
+    name: management
+  selector:
+    app: rabbitmq
+
+---
+# Deployment - API Gateway
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: coko-production
+  labels:
+    app: api-gateway
+    tier: gateway
+spec:
+  replicas: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        tier: gateway
+    spec:
+      containers:
+      - name: api-gateway
+        image: coko/api-gateway:latest
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: JWT_SECRET
+        envFrom:
+        - configMapRef:
+            name: coko-config
+        - configMapRef:
+            name: service-urls
+        - configMapRef:
+            name: redis-config
+        ports:
+        - containerPort: 3000
+          name: http
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+
+---
+# Service - API Gateway
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-service
+  namespace: coko-production
+  labels:
+    app: api-gateway
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    name: http
+  selector:
+    app: api-gateway
+
+---
+# Deployment - Auth Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: coko-production
+  labels:
+    app: auth-service
+    tier: backend
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        tier: backend
+    spec:
+      containers:
+      - name: auth-service
+        image: coko/auth-service:latest
+        env:
+        - name: PORT
+          value: "8080"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: AUTH_DB_PASSWORD
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: JWT_SECRET
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: REDIS_PASSWORD
+        envFrom:
+        - configMapRef:
+            name: coko-config
+        - configMapRef:
+            name: postgres-config
+        - configMapRef:
+            name: redis-config
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+
+---
+# Service - Auth Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: coko-production
+  labels:
+    app: auth-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  selector:
+    app: auth-service
+
+---
+# Deployment - Catalog Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-service
+  namespace: coko-production
+  labels:
+    app: catalog-service
+    tier: backend
+spec:
+  replicas: 4
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: catalog-service
+  template:
+    metadata:
+      labels:
+        app: catalog-service
+        tier: backend
+    spec:
+      containers:
+      - name: catalog-service
+        image: coko/catalog-service:latest
+        env:
+        - name: PORT
+          value: "8080"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: CATALOG_DB_PASSWORD
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: REDIS_PASSWORD
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: MINIO_ACCESS_KEY
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: coko-secrets
+              key: MINIO_SECRET_KEY
+        envFrom:
+        - configMapRef:
+            name: coko-config
+        - configMapRef:
+            name: postgres-config
+        - configMapRef:
+            name: redis-config
+        - configMapRef:
+            name: elasticsearch-config
+        - configMapRef:
+            name: minio-config
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "300m"
+          limits:
+            memory: "1Gi"
+            cpu: "800m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+
+---
+# Service - Catalog Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service
+  namespace: coko-production
+  labels:
+    app: catalog-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  selector:
+    app: catalog-service
+
+---
+# Ingress - Production
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: coko-ingress
+  namespace: coko-production
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "1000"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+spec:
+  tls:
+  - hosts:
+    - coko.africa
+    - api.coko.africa
+    - admin.coko.africa
+    secretName: coko-tls
+  rules:
+  - host: coko.africa
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80
+  - host: api.coko.africa
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway-service
+            port:
+              number: 3000
+  - host: admin.coko.africa
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-frontend-service
+            port:
+              number: 80
+
+---
+# HorizontalPodAutoscaler - API Gateway
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-gateway-hpa
+  namespace: coko-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  minReplicas: 5
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+
+---
+# HorizontalPodAutoscaler - Auth Service
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-service-hpa
+  namespace: coko-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-service
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# HorizontalPodAutoscaler - Catalog Service
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: catalog-service-hpa
+  namespace: coko-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: catalog-service
+  minReplicas: 4
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# NetworkPolicy - Production Security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: coko-network-policy
+  namespace: coko-production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector: {}
+  egress:
+  - to:
+    - podSelector: {}
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+
+---
+# ServiceMonitor - Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: coko-services
+  namespace: coko-production
+  labels:
+    app: coko
+spec:
+  selector:
+    matchLabels:
+      monitoring: "true"
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# ConfigMap - Prometheus Rules
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: coko-production
+data:
+  coko.rules.yml: |
+    groups:
+    - name: coko.production.rules
+      rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          environment: production
+        annotations:
+          summary: "High error rate detected in production"
+          description: "Error rate is {{ $value }} errors per second"
+      
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 3m
+        labels:
+          severity: warning
+          environment: production
+        annotations:
+          summary: "High response time in production"
+          description: "95th percentile response time is {{ $value }} seconds"
+      
+      - alert: PodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          environment: production
+        annotations:
+          summary: "Pod is crash looping"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is crash looping"
+      
+      - alert: HighMemoryUsage
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          environment: production
+        annotations:
+          summary: "High memory usage"
+          description: "Container {{ $labels.container }} is using {{ $value | humanizePercentage }} of memory"
+      
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_activity_count > 40
+        for: 2m
+        labels:
+          severity: warning
+          environment: production
+        annotations:
+          summary: "High number of database connections"
+          description: "{{ $value }} active connections to database"
+
+---
+# CronJob - Database Backup
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: database-backup
+  namespace: coko-production
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: postgres:15-alpine
+            command:
+            - /bin/bash
+            - -c
+            - |
+              DATE=$(date +%Y%m%d_%H%M%S)
+              for db in coko_auth coko_catalog coko_reading coko_payment coko_gamification coko_community; do
+                pg_dump -h postgres-service -U postgres $db | gzip > /backup/${db}_${DATE}.sql.gz
+              done
+              aws s3 sync /backup s3://coko-backups-prod/$(date +%Y/%m/%d)/
+              find /backup -name "*.sql.gz" -mtime +7 -delete
+            env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: coko-secrets
+                  key: POSTGRES_PASSWORD
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: secret-access-key
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+          volumes:
+          - name: backup-storage
+            emptyDir: {}
+          restartPolicy: OnFailure
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+
+---
+# CronJob - Log Cleanup
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: log-cleanup
+  namespace: coko-production
+spec:
+  schedule: "0 3 * * 0"  # Weekly on Sunday at 3 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cleanup
+            image: curlimages/curl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              # Delete logs older than 30 days
+              curl -X DELETE "elasticsearch-service:9200/coko-logs-*" \
+                -H "Content-Type: application/json" \
+                -d '{
+                  "query": {
+                    "range": {
+                      "@timestamp": {
+                        "lt": "now-30d"
+                      }
+                    }
+                  }
+                }'
+          restartPolicy: OnFailure
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+
+---
+# ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coko-service-account
+  namespace: coko-production
+
+---
+# Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: coko-role
+  namespace: coko-production
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: coko-role-binding
+  namespace: coko-production
+subjects:
+- kind: ServiceAccount
+  name: coko-service-account
+  namespace: coko-production
+roleRef:
+  kind: Role
+  name: coko-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# PodDisruptionBudget - API Gateway
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: coko-production
+spec:
+  minAvailable: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+
+---
+# PodDisruptionBudget - Auth Service
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: auth-service-pdb
+  namespace: coko-production
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: auth-service
+
+---
+# PodDisruptionBudget - Catalog Service
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: catalog-service-pdb
+  namespace: coko-production
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: catalog-service

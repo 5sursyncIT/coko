@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py:*)",
+      "Bash(python3 manage.py check:*)",
+      "Bash(ls:*)",
+      "Bash(source:*)"
+    ],
+    "deny": []
+  }
+}

@@ -1,0 +1,1 @@
+"""Service de catalogue pour la gestion des livres et métadonnées."""

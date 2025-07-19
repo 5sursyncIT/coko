@@ -1,0 +1,798 @@
+openapi: 3.0.3
+info:
+  title: Coko Platform API
+  description: API specifications for Coko digital library platform
+  version: 1.0.0
+  contact:
+    name: Coko Development Team
+    email: dev@coko.africa
+
+servers:
+  - url: https://api.coko.africa/v1
+    description: Production server
+  - url: https://staging-api.coko.africa/v1
+    description: Staging server
+  - url: http://localhost:8000/v1
+    description: Development server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+      required:
+        - code
+        - message
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
+    # Auth Service Schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+        country:
+          type: string
+        language:
+          type: string
+          enum: [fr, en, wo, ar]
+        is_active:
+          type: boolean
+        subscription_status:
+          type: string
+          enum: [free, premium, student]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        password:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+        country:
+          type: string
+        language:
+          type: string
+          enum: [fr, en, wo, ar]
+      required:
+        - email
+        - username
+        - password
+        - first_name
+        - last_name
+        - country
+        - language
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          default: Bearer
+        expires_in:
+          type: integer
+        user:
+          $ref: '#/components/schemas/User'
+
+    # Catalog Service Schemas
+    Book:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        subtitle:
+          type: string
+        description:
+          type: string
+        isbn:
+          type: string
+        language:
+          type: string
+        publication_date:
+          type: string
+          format: date
+        page_count:
+          type: integer
+        file_size:
+          type: integer
+        format:
+          type: string
+          enum: [pdf, epub, mobi]
+        cover_url:
+          type: string
+          format: uri
+        file_url:
+          type: string
+          format: uri
+        price:
+          type: number
+          format: decimal
+        currency:
+          type: string
+          enum: [XOF, EUR, USD]
+        is_free:
+          type: boolean
+        is_featured:
+          type: boolean
+        rating:
+          type: number
+          format: float
+        download_count:
+          type: integer
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Author'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+        publisher:
+          $ref: '#/components/schemas/Publisher'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Author:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        biography:
+          type: string
+        photo_url:
+          type: string
+          format: uri
+        nationality:
+          type: string
+        birth_date:
+          type: string
+          format: date
+        created_at:
+          type: string
+          format: date-time
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        parent_id:
+          type: string
+          format: uuid
+        icon:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Publisher:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        website:
+          type: string
+          format: uri
+        logo_url:
+          type: string
+          format: uri
+        created_at:
+          type: string
+          format: date-time
+
+    # Reading Service Schemas
+    ReadingProgress:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        book_id:
+          type: string
+          format: uuid
+        current_page:
+          type: integer
+        total_pages:
+          type: integer
+        progress_percentage:
+          type: number
+          format: float
+        reading_time_minutes:
+          type: integer
+        last_read_at:
+          type: string
+          format: date-time
+        is_completed:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Annotation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        book_id:
+          type: string
+          format: uuid
+        page_number:
+          type: integer
+        text_selection:
+          type: string
+        note:
+          type: string
+        highlight_color:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # Payment Service Schemas
+    SubscriptionPlan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: decimal
+        currency:
+          type: string
+          enum: [XOF, EUR, USD]
+        duration_days:
+          type: integer
+        features:
+          type: array
+          items:
+            type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [active, expired, cancelled, pending]
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        payment_method:
+          type: string
+          enum: [orange_money, wave, visa, mastercard]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # Gamification Service Schemas
+    Badge:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        icon_url:
+          type: string
+          format: uri
+        criteria:
+          type: string
+        points_value:
+          type: integer
+        rarity:
+          type: string
+          enum: [common, rare, epic, legendary]
+        created_at:
+          type: string
+          format: date-time
+
+    UserStats:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        total_points:
+          type: integer
+        level:
+          type: integer
+        books_read:
+          type: integer
+        reading_streak_days:
+          type: integer
+        total_reading_time_minutes:
+          type: integer
+        badges_earned:
+          type: array
+          items:
+            $ref: '#/components/schemas/Badge'
+        updated_at:
+          type: string
+          format: date-time
+
+paths:
+  # Auth Service Endpoints
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/profile:
+    get:
+      tags:
+        - Authentication
+      summary: Get user profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # Catalog Service Endpoints
+  /catalog/books:
+    get:
+      tags:
+        - Catalog
+      summary: Get books list
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: author
+          in: query
+          schema:
+            type: string
+        - name: language
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Books list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Book'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+  /catalog/books/{id}:
+    get:
+      tags:
+        - Catalog
+      summary: Get book details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Book details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '404':
+          description: Book not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /catalog/categories:
+    get:
+      tags:
+        - Catalog
+      summary: Get categories list
+      responses:
+        '200':
+          description: Categories list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+
+  # Reading Service Endpoints
+  /reading/progress:
+    get:
+      tags:
+        - Reading
+      summary: Get user reading progress
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Reading progress list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReadingProgress'
+
+  /reading/progress/{book_id}:
+    post:
+      tags:
+        - Reading
+      summary: Update reading progress
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: book_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                current_page:
+                  type: integer
+                reading_time_minutes:
+                  type: integer
+      responses:
+        '200':
+          description: Progress updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadingProgress'
+
+  /reading/annotations:
+    get:
+      tags:
+        - Reading
+      summary: Get user annotations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: book_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Annotations list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Annotation'
+
+    post:
+      tags:
+        - Reading
+      summary: Create annotation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                book_id:
+                  type: string
+                  format: uuid
+                page_number:
+                  type: integer
+                text_selection:
+                  type: string
+                note:
+                  type: string
+                highlight_color:
+                  type: string
+              required:
+                - book_id
+                - page_number
+      responses:
+        '201':
+          description: Annotation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Annotation'
+
+  # Payment Service Endpoints
+  /payment/plans:
+    get:
+      tags:
+        - Payment
+      summary: Get subscription plans
+      responses:
+        '200':
+          description: Subscription plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionPlan'
+
+  /payment/subscribe:
+    post:
+      tags:
+        - Payment
+      summary: Create subscription
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan_id:
+                  type: string
+                  format: uuid
+                payment_method:
+                  type: string
+                  enum: [orange_money, wave, visa, mastercard]
+              required:
+                - plan_id
+                - payment_method
+      responses:
+        '201':
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+
+  # Gamification Service Endpoints
+  /gamification/stats:
+    get:
+      tags:
+        - Gamification
+      summary: Get user stats
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStats'
+
+  /gamification/badges:
+    get:
+      tags:
+        - Gamification
+      summary: Get available badges
+      responses:
+        '200':
+          description: Available badges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Badge'
+
+security:
+  - BearerAuth: []

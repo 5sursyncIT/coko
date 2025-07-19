@@ -1,0 +1,108 @@
+# Django and core dependencies
+Django==4.2.7
+django-environ==0.11.2
+psycopg2-binary==2.9.9
+
+# Django REST Framework
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.0
+django-filter==23.3
+django-cors-headers==4.3.1
+
+# GraphQL
+graphene-django==3.1.5
+django-graphql-jwt==0.4.0
+
+# Celery for async tasks
+celery==5.3.4
+django-celery-beat==2.5.0
+django-celery-results==2.5.1
+redis==5.0.1
+django-redis==5.4.0
+
+# File storage and media
+Pillow==10.1.0
+django-storages==1.14.2
+boto3==1.34.0
+
+# Search and indexing
+elasticsearch==7.17.9
+elasticsearch-dsl==7.4.1
+django-elasticsearch-dsl==7.3
+
+# PDF and document processing
+PyPDF2==3.0.1
+python-docx==1.1.0
+ebooklib==0.18
+
+# ============================================================================
+# OPTIONAL DEPENDENCIES - Uncomment only what you need
+# ============================================================================
+
+# Machine Learning and AI (heavy dependencies - uncomment if needed)
+# scikit-learn==1.3.2
+# numpy==1.26.2
+# pandas==2.1.4
+# scipy==1.11.4
+
+# Deep Learning frameworks (very heavy - choose one or both based on needs)
+# tensorflow==2.15.0
+# torch==2.1.2
+
+# NLP libraries (moderate weight)
+# transformers==4.36.0
+# nltk==3.8.1
+# spacy==3.7.2
+# langdetect==1.0.9
+
+# Computer Vision (heavy)
+# opencv-python==4.8.1.78
+
+# HTTP and API clients
+requests==2.31.0
+httpx==0.25.2
+
+# Data validation and serialization
+marshmallow==3.20.1
+pydantic==2.5.0
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+slugify==0.0.1
+faker==20.1.0
+
+# Monitoring and logging
+sentry-sdk==1.38.0
+django-extensions==3.2.3
+
+# Development and testing
+pytest==7.4.3
+pytest-django==4.7.0
+pytest-cov==4.1.0
+factory-boy==3.3.0
+django-debug-toolbar==4.2.0
+
+# Code quality
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.7.1
+django-stubs==4.2.7
+
+# WebSocket support
+channels==4.0.0
+channels-redis==4.1.0
+
+# Payment processing
+stripe==7.8.0
+
+# Internationalization
+django-modeltranslation==0.18.11
+
+# Security
+cryptography==41.0.7
+django-ratelimit==4.1.0
+
+# Documentation
+drf-spectacular==0.26.5

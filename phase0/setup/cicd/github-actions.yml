@@ -1,0 +1,849 @@
+# Configuration CI/CD - GitHub Actions
+# Projet Coko - Pipeline d'Intégration et Déploiement Continu
+
+# =============================================================================
+# WORKFLOW PRINCIPAL - CI/CD COMPLET
+# =============================================================================
+
+name: Coko CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.gitignore'
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+  GO_VERSION: '1.21'
+
+jobs:
+  # ===========================================================================
+  # PHASE 1: VALIDATION ET TESTS
+  # ===========================================================================
+  
+  code-quality:
+    name: Code Quality & Security
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: 'services/*/go.sum'
+      
+      - name: Install dependencies
+        run: |
+          # Frontend dependencies
+          cd frontend && npm ci
+          
+          # Python dependencies
+          pip install -r requirements-dev.txt
+          
+          # Go dependencies
+          cd services && go mod download
+      
+      - name: Lint Frontend
+        run: |
+          cd frontend
+          npm run lint
+          npm run type-check
+      
+      - name: Lint Backend Services
+        run: |
+          cd services
+          golangci-lint run ./...
+          
+          # Python services
+          cd ../python-services
+          flake8 .
+          black --check .
+          mypy .
+      
+      - name: Security Scan - Frontend
+        run: |
+          cd frontend
+          npm audit --audit-level=high
+          npx snyk test
+      
+      - name: Security Scan - Backend
+        run: |
+          # Go security
+          cd services
+          gosec ./...
+          
+          # Python security
+          cd ../python-services
+          bandit -r .
+          safety check
+      
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # ===========================================================================
+  # TESTS UNITAIRES ET D'INTÉGRATION
+  # ===========================================================================
+  
+  test-frontend:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+      
+      - name: Install dependencies
+        run: cd frontend && npm ci
+      
+      - name: Run unit tests
+        run: |
+          cd frontend
+          npm run test:unit -- --coverage
+      
+      - name: Run component tests
+        run: |
+          cd frontend
+          npm run test:component
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+
+  test-backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: coko_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          cd services && go mod download
+          pip install -r requirements-test.txt
+      
+      - name: Run Go tests
+        env:
+          DATABASE_URL: postgres://postgres:test@localhost:5432/coko_test
+          REDIS_URL: redis://localhost:6379
+        run: |
+          cd services
+          go test -v -race -coverprofile=coverage.out ./...
+          go tool cover -html=coverage.out -o coverage.html
+      
+      - name: Run Python tests
+        env:
+          DATABASE_URL: postgres://postgres:test@localhost:5432/coko_test
+          REDIS_URL: redis://localhost:6379
+        run: |
+          cd python-services
+          pytest --cov=. --cov-report=xml --cov-report=html
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./services/coverage.out,./python-services/coverage.xml
+          flags: backend
+          name: backend-coverage
+
+  # ===========================================================================
+  # TESTS E2E ET PERFORMANCE
+  # ===========================================================================
+  
+  test-e2e:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Start services with Docker Compose
+        run: |
+          docker-compose -f docker-compose.test.yml up -d
+          sleep 30  # Wait for services to be ready
+      
+      - name: Install E2E dependencies
+        run: |
+          cd e2e-tests
+          npm ci
+          npx playwright install
+      
+      - name: Run E2E tests
+        run: |
+          cd e2e-tests
+          npm run test:e2e
+      
+      - name: Upload E2E artifacts
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: e2e-artifacts
+          path: |
+            e2e-tests/test-results/
+            e2e-tests/playwright-report/
+      
+      - name: Cleanup
+        if: always()
+        run: docker-compose -f docker-compose.test.yml down
+
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'performance')
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup K6
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+      
+      - name: Start services
+        run: |
+          docker-compose -f docker-compose.perf.yml up -d
+          sleep 60
+      
+      - name: Run performance tests
+        run: |
+          cd performance-tests
+          k6 run --out json=results.json load-test.js
+      
+      - name: Upload performance results
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-results
+          path: performance-tests/results.json
+
+  # ===========================================================================
+  # BUILD ET PACKAGING
+  # ===========================================================================
+  
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    needs: [code-quality, test-frontend]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+      
+      - name: Install dependencies
+        run: cd frontend && npm ci
+      
+      - name: Build application
+        env:
+          NODE_ENV: production
+          VITE_API_URL: ${{ secrets.API_URL }}
+          VITE_APP_VERSION: ${{ github.sha }}
+        run: |
+          cd frontend
+          npm run build
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/dist/
+          retention-days: 7
+
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [code-quality, test-backend]
+    
+    strategy:
+      matrix:
+        service: [api-gateway, auth, catalog, reading, payment, gamification, community, admin, notification]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/${{ matrix.service }}
+          file: ./services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # ===========================================================================
+  # DÉPLOIEMENT
+  # ===========================================================================
+  
+  deploy-development:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: [build-frontend, build-images, test-e2e]
+    if: github.ref == 'refs/heads/develop'
+    environment: development
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name coko-dev-cluster
+      
+      - name: Deploy to development
+        run: |
+          cd k8s/overlays/development
+          kubectl apply -k .
+          kubectl rollout status deployment -n coko-dev --timeout=600s
+      
+      - name: Run smoke tests
+        run: |
+          cd smoke-tests
+          npm ci
+          npm run test:dev
+      
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: always()
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-frontend, build-images, test-e2e, performance-tests]
+    if: startsWith(github.ref, 'refs/heads/release/') || github.ref == 'refs/heads/main'
+    environment: staging
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name coko-staging-cluster
+      
+      - name: Deploy to staging
+        run: |
+          cd k8s/overlays/staging
+          kubectl apply -k .
+          kubectl rollout status deployment -n coko-staging --timeout=600s
+      
+      - name: Run acceptance tests
+        run: |
+          cd acceptance-tests
+          npm ci
+          npm run test:staging
+      
+      - name: Performance validation
+        run: |
+          cd performance-tests
+          k6 run --out json=staging-results.json staging-validation.js
+      
+      - name: Security scan (staging)
+        run: |
+          # OWASP ZAP scan
+          docker run -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py \
+            -t https://staging.coko.africa -J staging-security-report.json
+      
+      - name: Upload security report
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-report-staging
+          path: staging-security-report.json
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name coko-prod-cluster
+      
+      - name: Blue/Green Deployment
+        run: |
+          cd k8s/overlays/production
+          
+          # Deploy to green environment
+          kubectl apply -k . --dry-run=client
+          kubectl apply -k .
+          
+          # Wait for green deployment
+          kubectl rollout status deployment -n coko-prod --timeout=900s
+          
+          # Health check
+          sleep 60
+          kubectl get pods -n coko-prod
+      
+      - name: Production smoke tests
+        run: |
+          cd smoke-tests
+          npm ci
+          npm run test:prod
+      
+      - name: Switch traffic (Blue/Green)
+        run: |
+          # Update service selectors to point to new deployment
+          cd k8s/overlays/production
+          kubectl patch service coko-api-gateway -n coko-prod -p '{"spec":{"selector":{"version":"green"}}}'
+      
+      - name: Monitor deployment
+        run: |
+          # Monitor for 5 minutes
+          sleep 300
+          
+          # Check error rates
+          kubectl logs -n coko-prod -l app=api-gateway --tail=100
+      
+      - name: Cleanup old deployment
+        run: |
+          # Remove blue deployment after successful green deployment
+          kubectl delete deployment -n coko-prod -l version=blue
+      
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          body: |
+            ## Changes in this Release
+            ${{ github.event.head_commit.message }}
+            
+            ## Deployment Info
+            - **Environment**: Production
+            - **Commit**: ${{ github.sha }}
+            - **Deployed by**: ${{ github.actor }}
+            - **Deployment time**: ${{ github.event.head_commit.timestamp }}
+          draft: false
+          prerelease: false
+      
+      - name: Notify teams
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#production-deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_PROD }}
+          custom_payload: |
+            {
+              "text": "🚀 Production Deployment Successful",
+              "attachments": [{
+                "color": "good",
+                "fields": [{
+                  "title": "Version",
+                  "value": "v${{ github.run_number }}",
+                  "short": true
+                }, {
+                  "title": "Commit",
+                  "value": "${{ github.sha }}",
+                  "short": true
+                }, {
+                  "title": "Deployed by",
+                  "value": "${{ github.actor }}",
+                  "short": true
+                }]
+              }]
+            }
+        if: success()
+
+  # ===========================================================================
+  # ROLLBACK AUTOMATIQUE
+  # ===========================================================================
+  
+  rollback-production:
+    name: Rollback Production
+    runs-on: ubuntu-latest
+    if: failure() && github.ref == 'refs/heads/main'
+    needs: [deploy-production]
+    environment: production
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name coko-prod-cluster
+      
+      - name: Rollback to previous version
+        run: |
+          kubectl rollout undo deployment -n coko-prod
+          kubectl rollout status deployment -n coko-prod --timeout=600s
+      
+      - name: Verify rollback
+        run: |
+          cd smoke-tests
+          npm ci
+          npm run test:prod
+      
+      - name: Notify rollback
+        uses: 8398a7/action-slack@v3
+        with:
+          status: 'warning'
+          channel: '#production-alerts'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_ALERTS }}
+          custom_payload: |
+            {
+              "text": "⚠️ Production Rollback Executed",
+              "attachments": [{
+                "color": "warning",
+                "fields": [{
+                  "title": "Reason",
+                  "value": "Deployment failure detected",
+                  "short": false
+                }, {
+                  "title": "Action",
+                  "value": "Automatic rollback to previous stable version",
+                  "short": false
+                }]
+              }]
+            }
+
+# =============================================================================
+# WORKFLOWS SPÉCIALISÉS
+# =============================================================================
+
+---
+# Workflow pour les hotfixes
+name: Hotfix Pipeline
+
+on:
+  push:
+    branches: [hotfix/*]
+
+jobs:
+  hotfix-validation:
+    name: Hotfix Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Critical tests only
+        run: |
+          # Tests critiques uniquement
+          npm run test:critical
+          go test -run TestCritical ./...
+      
+      - name: Security scan
+        run: |
+          npm audit --audit-level=critical
+          gosec -severity high ./...
+      
+      - name: Fast build
+        run: |
+          docker build -t hotfix-test .
+      
+      - name: Deploy to hotfix environment
+        run: |
+          # Déploiement rapide pour validation
+          kubectl apply -f k8s/hotfix/
+
+---
+# Workflow pour les dépendances
+name: Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Lundi à 2h du matin
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    name: Update Dependencies
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Update npm dependencies
+        run: |
+          cd frontend
+          npx npm-check-updates -u
+          npm install
+          npm audit fix
+      
+      - name: Update Go dependencies
+        run: |
+          cd services
+          go get -u ./...
+          go mod tidy
+      
+      - name: Update Python dependencies
+        run: |
+          pip-compile --upgrade requirements.in
+      
+      - name: Run tests
+        run: |
+          npm test
+          go test ./...
+          pytest
+      
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update dependencies'
+          title: 'Automated dependency updates'
+          body: |
+            ## Dependency Updates
+            
+            This PR contains automated dependency updates.
+            
+            ### Changes
+            - Updated npm packages
+            - Updated Go modules
+            - Updated Python packages
+            
+            ### Testing
+            - [x] Unit tests pass
+            - [x] Security scans pass
+            - [ ] Manual testing required
+          branch: chore/dependency-updates
+          delete-branch: true
+
+---
+# Workflow pour la documentation
+name: Documentation
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['docs/**', '*.md']
+
+jobs:
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Install VitePress
+        run: npm install -g vitepress
+      
+      - name: Build documentation
+        run: |
+          cd docs
+          vitepress build
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/.vitepress/dist
+
+---
+# Workflow pour les métriques
+name: Metrics Collection
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Toutes les 6 heures
+
+jobs:
+  collect-metrics:
+    name: Collect Metrics
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Collect code metrics
+        run: |
+          # Métriques de code
+          cloc --json . > metrics/code-metrics.json
+          
+          # Métriques de complexité
+          gocyclo -over 10 services/ > metrics/complexity.txt
+          
+          # Métriques de sécurité
+          gosec -fmt json -out metrics/security.json ./...
+      
+      - name: Upload metrics
+        uses: actions/upload-artifact@v3
+        with:
+          name: metrics-${{ github.sha }}
+          path: metrics/
+      
+      - name: Send to monitoring
+        run: |
+          # Envoyer les métriques à Prometheus/Grafana
+          curl -X POST ${{ secrets.METRICS_ENDPOINT }} \
+            -H "Authorization: Bearer ${{ secrets.METRICS_TOKEN }}" \
+            -d @metrics/code-metrics.json

@@ -1,0 +1,643 @@
+# Docker Compose - Environnement de Développement
+# Projet Coko - Configuration complète pour le développement local
+
+version: '3.8'
+
+networks:
+  coko-dev:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+
+services:
+  # =============================================================================
+  # BASES DE DONNÉES
+  # =============================================================================
+  
+  postgres:
+    image: postgres:15-alpine
+    container_name: coko-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: coko_dev
+      POSTGRES_USER: coko_dev
+      POSTGRES_PASSWORD: dev_password_123
+      POSTGRES_MULTIPLE_DATABASES: |
+        coko_auth,coko_catalog,coko_reading,coko_payment,coko_gamification,coko_community
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+      - ../architecture/database-schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - coko-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coko_dev -d coko_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: coko-redis-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass dev_redis_123
+    volumes:
+      - redis_data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    ports:
+      - "6379:6379"
+    networks:
+      - coko-dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: coko-elasticsearch-dev
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - coko-dev
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # =============================================================================
+  # STOCKAGE ET CACHE
+  # =============================================================================
+  
+  minio:
+    image: minio/minio:latest
+    container_name: coko-minio-dev
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: coko_dev
+      MINIO_ROOT_PASSWORD: dev_minio_123
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - coko-dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # =============================================================================
+  # MESSAGE QUEUE
+  # =============================================================================
+  
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: coko-rabbitmq-dev
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: coko_dev
+      RABBITMQ_DEFAULT_PASS: dev_rabbit_123
+      RABBITMQ_DEFAULT_VHOST: coko_dev
+    volumes:
+      - ./config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - coko-dev
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  # =============================================================================
+  # MONITORING ET OBSERVABILITÉ
+  # =============================================================================
+  
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: coko-prometheus-dev
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - coko-dev
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: coko-grafana-dev
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: dev_grafana_123
+      GF_USERS_ALLOW_SIGN_UP: false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    networks:
+      - coko-dev
+    depends_on:
+      - prometheus
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: coko-jaeger-dev
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+      - "14250:14250"
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    networks:
+      - coko-dev
+
+  # =============================================================================
+  # SERVICES COKO - API GATEWAY
+  # =============================================================================
+  
+  api-gateway:
+    build:
+      context: ../../services/api-gateway
+      dockerfile: Dockerfile.dev
+    container_name: coko-api-gateway-dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - REDIS_URL=redis://:dev_redis_123@redis:6379
+      - JWT_SECRET=dev_jwt_secret_very_long_key_123
+      - RATE_LIMIT_WINDOW_MS=60000
+      - RATE_LIMIT_MAX_REQUESTS=1000
+      - CORS_ORIGIN=http://localhost:5173
+      - LOG_LEVEL=debug
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+    volumes:
+      - ../../services/api-gateway:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    networks:
+      - coko-dev
+    depends_on:
+      - redis
+      - jaeger
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # SERVICES COKO - MICROSERVICES
+  # =============================================================================
+  
+  auth-service:
+    build:
+      context: ../../services/auth
+      dockerfile: Dockerfile.dev
+    container_name: coko-auth-dev
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - PORT=8001
+      - DATABASE_URL=postgres://coko_dev:dev_password_123@postgres:5432/coko_auth?sslmode=disable
+      - REDIS_URL=redis://:dev_redis_123@redis:6379
+      - JWT_SECRET=dev_jwt_secret_very_long_key_123
+      - JWT_EXPIRY=24h
+      - BCRYPT_COST=10
+      - LOG_LEVEL=debug
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+    volumes:
+      - ../../services/auth:/app
+    ports:
+      - "8001:8001"
+    networks:
+      - coko-dev
+    depends_on:
+      - postgres
+      - redis
+      - jaeger
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  catalog-service:
+    build:
+      context: ../../services/catalog
+      dockerfile: Dockerfile.dev
+    container_name: coko-catalog-dev
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - PORT=8002
+      - DATABASE_URL=postgres://coko_dev:dev_password_123@postgres:5432/coko_catalog?sslmode=disable
+      - REDIS_URL=redis://:dev_redis_123@redis:6379
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=coko_dev
+      - MINIO_SECRET_KEY=dev_minio_123
+      - LOG_LEVEL=debug
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+    volumes:
+      - ../../services/catalog:/app
+    ports:
+      - "8002:8002"
+    networks:
+      - coko-dev
+    depends_on:
+      - postgres
+      - redis
+      - elasticsearch
+      - minio
+      - jaeger
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  reading-service:
+    build:
+      context: ../../services/reading
+      dockerfile: Dockerfile.dev
+    container_name: coko-reading-dev
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - PORT=8003
+      - DATABASE_URL=postgres://coko_dev:dev_password_123@postgres:5432/coko_reading?sslmode=disable
+      - REDIS_URL=redis://:dev_redis_123@redis:6379
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=coko_dev
+      - MINIO_SECRET_KEY=dev_minio_123
+      - LOG_LEVEL=debug
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+    volumes:
+      - ../../services/reading:/app
+    ports:
+      - "8003:8003"
+    networks:
+      - coko-dev
+    depends_on:
+      - postgres
+      - redis
+      - minio
+      - jaeger
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  payment-service:
+    build:
+      context: ../../services/payment
+      dockerfile: Dockerfile.dev
+    container_name: coko-payment-dev
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - PORT=8004
+      - DATABASE_URL=postgres://coko_dev:dev_password_123@postgres:5432/coko_payment?sslmode=disable
+      - REDIS_URL=redis://:dev_redis_123@redis:6379
+      - ORANGE_MONEY_API_URL=https://api.orange.com/orange-money-webpay/dev/v1
+      - ORANGE_MONEY_MERCHANT_KEY=dev_orange_key
+      - WAVE_API_URL=https://api.wave.com/v1
+      - WAVE_API_KEY=dev_wave_key
+      - LOG_LEVEL=debug
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+    volumes:
+      - ../../services/payment:/app
+    ports:
+      - "8004:8004"
+    networks:
+      - coko-dev
+    depends_on:
+      - postgres
+      - redis
+      - jaeger
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  gamification-service:
+    build:
+      context: ../../services/gamification
+      dockerfile: Dockerfile.dev
+    container_name: coko-gamification-dev
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - PORT=8005
+      - DATABASE_URL=postgres://coko_dev:dev_password_123@postgres:5432/coko_gamification?sslmode=disable
+      - REDIS_URL=redis://:dev_redis_123@redis:6379
+      - RABBITMQ_URL=amqp://coko_dev:dev_rabbit_123@rabbitmq:5672/coko_dev
+      - LOG_LEVEL=debug
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+    volumes:
+      - ../../services/gamification:/app
+    ports:
+      - "8005:8005"
+    networks:
+      - coko-dev
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+      - jaeger
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  community-service:
+    build:
+      context: ../../services/community
+      dockerfile: Dockerfile.dev
+    container_name: coko-community-dev
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - PORT=8006
+      - DATABASE_URL=postgres://coko_dev:dev_password_123@postgres:5432/coko_community?sslmode=disable
+      - REDIS_URL=redis://:dev_redis_123@redis:6379
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - RABBITMQ_URL=amqp://coko_dev:dev_rabbit_123@rabbitmq:5672/coko_dev
+      - LOG_LEVEL=debug
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+    volumes:
+      - ../../services/community:/app
+    ports:
+      - "8006:8006"
+    networks:
+      - coko-dev
+    depends_on:
+      - postgres
+      - redis
+      - elasticsearch
+      - rabbitmq
+      - jaeger
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  admin-service:
+    build:
+      context: ../../services/admin
+      dockerfile: Dockerfile.dev
+    container_name: coko-admin-dev
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - PORT=8007
+      - DATABASE_URL=postgres://coko_dev:dev_password_123@postgres:5432/coko_auth?sslmode=disable
+      - REDIS_URL=redis://:dev_redis_123@redis:6379
+      - LOG_LEVEL=debug
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+    volumes:
+      - ../../services/admin:/app
+    ports:
+      - "8007:8007"
+    networks:
+      - coko-dev
+    depends_on:
+      - postgres
+      - redis
+      - jaeger
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  notification-service:
+    build:
+      context: ../../services/notification
+      dockerfile: Dockerfile.dev
+    container_name: coko-notification-dev
+    restart: unless-stopped
+    environment:
+      - GO_ENV=development
+      - PORT=8008
+      - REDIS_URL=redis://:dev_redis_123@redis:6379
+      - RABBITMQ_URL=amqp://coko_dev:dev_rabbit_123@rabbitmq:5672/coko_dev
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - SMTP_USER=
+      - SMTP_PASSWORD=
+      - SMS_PROVIDER=twilio
+      - TWILIO_ACCOUNT_SID=dev_twilio_sid
+      - TWILIO_AUTH_TOKEN=dev_twilio_token
+      - LOG_LEVEL=debug
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+    volumes:
+      - ../../services/notification:/app
+    ports:
+      - "8008:8008"
+    networks:
+      - coko-dev
+    depends_on:
+      - redis
+      - rabbitmq
+      - mailhog
+      - jaeger
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # FRONTEND
+  # =============================================================================
+  
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile.dev
+    container_name: coko-frontend-dev
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3000
+      - VITE_WS_URL=ws://localhost:3000
+      - VITE_APP_NAME=Coko Dev
+      - VITE_APP_VERSION=dev
+      - VITE_SENTRY_DSN=
+      - VITE_ANALYTICS_ID=
+    volumes:
+      - ../../frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    networks:
+      - coko-dev
+    depends_on:
+      - api-gateway
+    command: npm run dev -- --host 0.0.0.0
+
+  # =============================================================================
+  # OUTILS DE DÉVELOPPEMENT
+  # =============================================================================
+  
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: coko-mailhog-dev
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - coko-dev
+
+  adminer:
+    image: adminer:latest
+    container_name: coko-adminer-dev
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "8080:8080"
+    networks:
+      - coko-dev
+    depends_on:
+      - postgres
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: coko-redis-commander-dev
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:dev_redis_123
+    ports:
+      - "8081:8081"
+    networks:
+      - coko-dev
+    depends_on:
+      - redis
+
+  # =============================================================================
+  # TESTS ET QUALITÉ
+  # =============================================================================
+  
+  sonarqube:
+    image: sonarqube:community
+    container_name: coko-sonarqube-dev
+    restart: unless-stopped
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://postgres:5432/sonarqube
+      SONAR_JDBC_USERNAME: coko_dev
+      SONAR_JDBC_PASSWORD: dev_password_123
+    volumes:
+      - ./config/sonarqube/data:/opt/sonarqube/data
+      - ./config/sonarqube/logs:/opt/sonarqube/logs
+      - ./config/sonarqube/extensions:/opt/sonarqube/extensions
+    ports:
+      - "9000:9000"
+    networks:
+      - coko-dev
+    depends_on:
+      - postgres
+
+  # =============================================================================
+  # LOAD BALANCER (NGINX)
+  # =============================================================================
+  
+  nginx:
+    image: nginx:alpine
+    container_name: coko-nginx-dev
+    restart: unless-stopped
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - coko-dev
+    depends_on:
+      - api-gateway
+      - frontend
+
+# =============================================================================
+# CONFIGURATION AVANCÉE
+# =============================================================================
+
+# Healthcheck global
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+
+# Logging configuration
+x-logging-defaults: &logging-defaults
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Resource limits
+x-resource-defaults: &resource-defaults
+  deploy:
+    resources:
+      limits:
+        memory: 512M
+      reservations:
+        memory: 256M
+
+# Environment variables communes
+x-common-env: &common-env
+  TZ: Africa/Dakar
+  LANG: fr_FR.UTF-8
+  LC_ALL: fr_FR.UTF-8
