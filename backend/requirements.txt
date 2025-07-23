@@ -104,5 +104,8 @@ django-modeltranslation==0.18.11
 cryptography==41.0.7
 django-ratelimit==4.1.0
 
+# Compression
+brotli==1.1.0
+
 # Documentation
 drf-spectacular==0.26.5

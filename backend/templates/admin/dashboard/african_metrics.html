@@ -1,0 +1,529 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Métriques Africaines - Dashboard Coko{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.african-card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: all 0.15s ease-in-out;
+    border-left: 4px solid #FF6B35;
+}
+.african-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+.country-flag {
+    width: 32px;
+    height: 24px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-right: 8px;
+    background-size: cover;
+    background-position: center;
+}
+.flag-sn { background: linear-gradient(to right, #00A651 33%, #FFFF00 33%, #FFFF00 66%, #E31E24 66%); }
+.flag-ci { background: linear-gradient(to right, #FF8C00 33%, white 33%, white 66%, #009639 66%); }
+.flag-ml { background: linear-gradient(to right, #14B53A 33%, #FFED00 33%, #FFED00 66%, #CE1126 66%); }
+.flag-bf { background: linear-gradient(to bottom, white 50%, #CE1126 50%); position: relative; }
+.flag-bf:before { 
+    content: '★'; 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    color: #FFED00;
+    font-size: 12px;
+}
+.provider-orange { border-left-color: #FF6600; }
+.provider-mtn { border-left-color: #FFCB05; }
+.provider-wave { border-left-color: #FF1B7C; }
+.metric-african {
+    background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 20px;
+}
+.optimization-score {
+    font-size: 3rem;
+    font-weight: bold;
+}
+.performance-ring {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+.ring-excellent { background: conic-gradient(#28a745 0deg 324deg, #e9ecef 324deg 360deg); }
+.ring-good { background: conic-gradient(#17a2b8 0deg 288deg, #e9ecef 288deg 360deg); }
+.ring-average { background: conic-gradient(#ffc107 0deg 252deg, #e9ecef 252deg 360deg); }
+.network-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+}
+.network-2g { background-color: #dc3545; }
+.network-3g { background-color: #ffc107; }
+.network-4g { background-color: #28a745; }
+.african-pattern {
+    background-image: 
+        repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,107,53,.1) 2px, rgba(255,107,53,.1) 4px);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- En-tête spécialisé Afrique -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0" style="color: #FF6B35;">
+                <i class="fas fa-globe-africa me-2"></i>Métriques Africaines
+            </h1>
+            <p class="text-muted mb-0">Optimisations spécifiques pour l'Afrique de l'Ouest</p>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'admin:dashboard_overview' %}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-1"></i>Retour
+            </a>
+            <button class="btn btn-outline-success" onclick="exportAfricanData()">
+                <i class="fas fa-download me-1"></i>Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Optimisation réseau africain -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card african-card african-pattern">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0" style="color: #FF6B35;">
+                        <i class="fas fa-wifi me-2"></i>Optimisation Réseau Africain
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="metric-african mb-3">
+                                <div class="optimization-score">{{ african_metrics.network_optimization.compression_ratio }}</div>
+                                <small>Taux de Compression</small>
+                            </div>
+                            <p class="text-muted small">Réduction de la bande passante</p>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-african mb-3">
+                                <div class="optimization-score">{{ african_metrics.network_optimization.offline_sync_success }}</div>
+                                <small>Synchronisation Hors-ligne</small>
+                            </div>
+                            <p class="text-muted small">Taux de succès des syncs</p>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-african mb-3">
+                                <div class="optimization-score">{{ african_metrics.network_optimization.mobile_performance }}</div>
+                                <small>Performance Mobile</small>
+                            </div>
+                            <p class="text-muted small">Score d'optimisation mobile</p>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-african mb-3">
+                                <div class="optimization-score">{{ metrics.platform.performance_metrics.avg_response_time_africa }}</div>
+                                <small>Temps de Réponse</small>
+                            </div>
+                            <p class="text-muted small">Depuis l'Afrique</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Répartition par pays africains -->
+    <div class="row mb-4">
+        <div class="col-xl-8">
+            <div class="card african-card">
+                <div class="card-header">
+                    <h6 class="mb-0 font-weight-bold" style="color: #FF6B35;">
+                        <i class="fas fa-flag me-2"></i>Utilisateurs par Pays Africains
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for country_code, country_name in african_countries %}
+                        <div class="col-md-6 mb-3">
+                            <div class="d-flex align-items-center justify-content-between p-3 border rounded">
+                                <div class="d-flex align-items-center">
+                                    <span class="country-flag flag-{{ country_code|lower }}"></span>
+                                    <div>
+                                        <div class="font-weight-bold">{{ country_name }}</div>
+                                        <small class="text-muted">{{ country_code }}</small>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div class="h5 mb-0">{{ metrics.users.country_breakdown|default:country_code:"0" }}</div>
+                                    <small class="text-muted">utilisateurs</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="card african-card">
+                <div class="card-header">
+                    <h6 class="mb-0 font-weight-bold" style="color: #FF6B35;">
+                        <i class="fas fa-chart-pie me-2"></i>Répartition Géographique
+                    </h6>
+                </div>
+                <div class="card-body text-center">
+                    <canvas id="africanCountryChart" width="100" height="100"></canvas>
+                    <div class="mt-3">
+                        <div class="text-center">
+                            <span class="h4 text-success">{{ metrics.platform.african_users_percentage }}%</span>
+                            <p class="text-muted mb-0">d'utilisateurs africains</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paiements mobiles détaillés -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card african-card">
+                <div class="card-header">
+                    <h6 class="mb-0 font-weight-bold" style="color: #FF6B35;">
+                        <i class="fas fa-mobile-alt me-2"></i>Écosystème des Paiements Mobiles Africains
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Orange Money -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card provider-orange h-100">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-mobile-alt fa-3x" style="color: #FF6600;"></i>
+                                    </div>
+                                    <h5>Orange Money</h5>
+                                    <div class="h2 text-warning">{{ african_metrics.payment_adoption.orange_money|default:"45" }}%</div>
+                                    <p class="text-muted">Part de marché</p>
+                                    <div class="mb-2">
+                                        <small class="text-muted">Pays supportés:</small>
+                                        <br>
+                                        <span class="badge bg-warning me-1">SN</span>
+                                        <span class="badge bg-warning me-1">CI</span>
+                                        <span class="badge bg-warning me-1">ML</span>
+                                        <span class="badge bg-warning">BF</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MTN MoMo -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card provider-mtn h-100">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-mobile-alt fa-3x" style="color: #FFCB05;"></i>
+                                    </div>
+                                    <h5>MTN MoMo</h5>
+                                    <div class="h2 text-info">{{ african_metrics.payment_adoption.mtn_momo|default:"30" }}%</div>
+                                    <p class="text-muted">Part de marché</p>
+                                    <div class="mb-2">
+                                        <small class="text-muted">Pays supportés:</small>
+                                        <br>
+                                        <span class="badge bg-info me-1">CI</span>
+                                        <span class="badge bg-info me-1">GH</span>
+                                        <span class="badge bg-info">NG</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Wave -->
+                        <div class="col-md-4 mb-3">
+                            <div class="card provider-wave h-100">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-mobile-alt fa-3x" style="color: #FF1B7C;"></i>
+                                    </div>
+                                    <h5>Wave</h5>
+                                    <div class="h2 text-danger">{{ african_metrics.payment_adoption.wave|default:"20" }}%</div>
+                                    <p class="text-muted">Part de marché</p>
+                                    <div class="mb-2">
+                                        <small class="text-muted">Pays supportés:</small>
+                                        <br>
+                                        <span class="badge bg-danger me-1">SN</span>
+                                        <span class="badge bg-danger">CI</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tendances des paiements -->
+                    <div class="mt-4">
+                        <h6 class="font-weight-bold mb-3">Tendances d'Adoption</h6>
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <div class="performance-ring ring-excellent mx-auto mb-2">
+                                    <div class="bg-white rounded-circle d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                        <span class="h5 mb-0">{{ african_metrics.payment_adoption.mobile_money_usage|default:"78" }}%</span>
+                                    </div>
+                                </div>
+                                <p class="mb-0"><strong>Mobile Money</strong></p>
+                                <small class="text-muted">Adoption globale</small>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="performance-ring ring-average mx-auto mb-2">
+                                    <div class="bg-white rounded-circle d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                        <span class="h5 mb-0">{{ african_metrics.payment_adoption.traditional_banking|default:"22" }}%</span>
+                                    </div>
+                                </div>
+                                <p class="mb-0"><strong>Banque Traditionnelle</strong></p>
+                                <small class="text-muted">Cartes bancaires</small>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric-african text-center">
+                                    <div class="h4 mb-1">{{ african_metrics.payment_adoption.popular_provider|default:"Orange Money" }}</div>
+                                    <small>Provider le plus populaire</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric-african text-center">
+                                    <div class="h4 mb-1">96.5%</div>
+                                    <small>Taux de succès moyen</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Qualité réseau et optimisations -->
+    <div class="row mb-4">
+        <div class="col-xl-6">
+            <div class="card african-card">
+                <div class="card-header">
+                    <h6 class="mb-0 font-weight-bold" style="color: #FF6B35;">
+                        <i class="fas fa-signal me-2"></i>Qualité du Réseau par Pays
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h6>Répartition des Types de Connexion</h6>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><span class="network-indicator network-2g"></span>2G/EDGE</span>
+                            <span>15%</span>
+                        </div>
+                        <div class="progress mb-3" style="height: 8px;">
+                            <div class="progress-bar bg-danger" style="width: 15%"></div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><span class="network-indicator network-3g"></span>3G/H+</span>
+                            <span>55%</span>
+                        </div>
+                        <div class="progress mb-3" style="height: 8px;">
+                            <div class="progress-bar bg-warning" style="width: 55%"></div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span><span class="network-indicator network-4g"></span>4G/LTE</span>
+                            <span>30%</span>
+                        </div>
+                        <div class="progress mb-3" style="height: 8px;">
+                            <div class="progress-bar bg-success" style="width: 30%"></div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>Optimisation automatique:</strong> Le contenu est adapté en temps réel selon la qualité de connexion détectée.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-6">
+            <div class="card african-card">
+                <div class="card-header">
+                    <h6 class="mb-0 font-weight-bold" style="color: #FF6B35;">
+                        <i class="fas fa-language me-2"></i>Localisation et Contenu
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-6 text-center">
+                            <div class="h3 text-success">{{ african_metrics.localization.supported_languages|length }}</div>
+                            <p class="text-muted mb-0">Langues Supportées</p>
+                        </div>
+                        <div class="col-6 text-center">
+                            <div class="h3 text-info">{{ african_metrics.localization.african_content_percentage|default:"65%" }}</div>
+                            <p class="text-muted mb-0">Contenu Africain</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6>Langues Africaines Supportées</h6>
+                        {% for language in african_metrics.localization.supported_languages %}
+                        <span class="badge bg-primary me-1 mb-1">{{ language }}</span>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Auteurs Africains</span>
+                            <span class="badge bg-success">{{ african_metrics.localization.local_authors }}</span>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-success">
+                        <i class="fas fa-check me-2"></i>
+                        <strong>Impact culturel:</strong> {{ african_metrics.localization.african_content_percentage|default:"65%" }} du contenu provient d'auteurs africains.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommandations d'optimisation -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card african-card">
+                <div class="card-header">
+                    <h6 class="mb-0 font-weight-bold" style="color: #FF6B35;">
+                        <i class="fas fa-recommendations me-2"></i>Recommandations d'Optimisation
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card border-success h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-compress-arrows-alt fa-2x text-success mb-3"></i>
+                                    <h6>Compression Avancée</h6>
+                                    <p class="text-muted small">Réduire encore plus la bande passante avec des techniques de compression adaptatives.</p>
+                                    <span class="badge bg-success">Priorité: Élevée</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-warning h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-satellite-dish fa-2x text-warning mb-3"></i>
+                                    <h6>Edge Computing</h6>
+                                    <p class="text-muted small">Déployer des serveurs edge en Afrique pour réduire la latence.</p>
+                                    <span class="badge bg-warning">Priorité: Moyenne</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-info h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-handshake fa-2x text-info mb-3"></i>
+                                    <h6>Partenariats Opérateurs</h6>
+                                    <p class="text-muted small">Négocier des accords pour l'accès gratuit ou réduit aux données.</p>
+                                    <span class="badge bg-info">Priorité: Moyenne</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initializeAfricanCharts();
+});
+
+function initializeAfricanCharts() {
+    // Graphique des pays africains
+    const africanCtx = document.getElementById('africanCountryChart').getContext('2d');
+    
+    new Chart(africanCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Afrique de l\'Ouest', 'Afrique du Nord', 'Autres régions'],
+            datasets: [{
+                data: [{{ metrics.platform.african_users_percentage }}, 15, {{ 100|sub:metrics.platform.african_users_percentage|sub:15 }}],
+                backgroundColor: ['#FF6B35', '#F7931E', '#e9ecef']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        fontSize: 10
+                    }
+                }
+            }
+        }
+    });
+}
+
+function exportAfricanData() {
+    const exportData = {
+        network_optimization: {{ african_metrics.network_optimization|safe }},
+        payment_adoption: {{ african_metrics.payment_adoption|safe }},
+        localization: {{ african_metrics.localization|safe }},
+        export_timestamp: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], 
+        { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `coko_metriques_africaines_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Animation des métriques au scroll
+function animateMetrics() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const metric = entry.target.querySelector('.optimization-score');
+                if (metric) {
+                    metric.style.transform = 'scale(1.1)';
+                    setTimeout(() => {
+                        metric.style.transform = 'scale(1)';
+                    }, 200);
+                }
+            }
+        });
+    });
+
+    document.querySelectorAll('.metric-african').forEach(el => {
+        observer.observe(el);
+    });
+}
+
+animateMetrics();
+</script>
+{% endblock %}

@@ -9,6 +9,9 @@ urlpatterns = [
     # Admin interface
     path('admin/', admin.site.urls),
     
+    # Dashboard unifié et back-office amélioré
+    path('admin/', include('shared_models.urls')),
+    
     # API endpoints
     path('api/v1/auth/', include('auth_service.urls')),
     path('api/v1/catalog/', include('catalog_service.urls')),
@@ -20,6 +23,9 @@ urlpatterns = [
     
     # Health check
     path('health/', include('coko.health_urls')),
+    
+    # African-specific features (temporarily disabled)
+    # path('african/', include('coko.african_urls')),
 ]
 
 # Serve media files in development

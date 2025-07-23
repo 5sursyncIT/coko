@@ -1,0 +1,498 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ dashboard_title }}{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.dashboard-card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: all 0.15s ease-in-out;
+}
+.dashboard-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+.metric-icon {
+    font-size: 2rem;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+.african-flag {
+    width: 20px;
+    height: 15px;
+    display: inline-block;
+    margin-right: 5px;
+}
+.status-healthy { color: #28a745; }
+.status-warning { color: #ffc107; }
+.status-error { color: #dc3545; }
+.growth-positive { color: #28a745; }
+.growth-negative { color: #dc3545; }
+.refresh-indicator {
+    animation: spin 1s linear infinite;
+    display: none;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- En-tête du dashboard -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">{{ dashboard_title }}</h1>
+            <p class="text-muted mb-0">Dernière mise à jour: {{ refresh_time }}</p>
+        </div>
+        <div class="btn-group" role="group">
+            <select id="periodSelect" class="form-select me-2" onchange="changePeriod()">
+                {% for period in available_periods %}
+                <option value="{{ period }}" {% if period == period_days %}selected{% endif %}>
+                    {% if period == 7 %}7 jours
+                    {% elif period == 30 %}30 jours
+                    {% elif period == 90 %}3 mois
+                    {% elif period == 365 %}1 an
+                    {% else %}{{ period }} jours
+                    {% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-outline-primary" onclick="refreshDashboard()">
+                <i id="refreshIcon" class="fas fa-sync-alt"></i> Actualiser
+            </button>
+            <button class="btn btn-outline-success" onclick="exportData()">
+                <i class="fas fa-download"></i> Exporter
+            </button>
+        </div>
+    </div>
+
+    <!-- Métriques principales -->
+    <div class="row mb-4">
+        <!-- Utilisateurs -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card dashboard-card border-left-primary h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Utilisateurs Totaux
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ metrics.users.total|floatformat:0 }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                +{{ metrics.users.new_period }} nouveaux ({{ period_days }}j)
+                                {% if metrics.users.growth_rate %}
+                                <span class="{% if metrics.users.growth_rate > 0 %}growth-positive{% else %}growth-negative{% endif %}">
+                                    {% if metrics.users.growth_rate > 0 %}↗{% else %}↘{% endif %}{{ metrics.users.growth_rate|floatformat:1 }}%
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="metric-icon bg-primary text-white">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenu -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card dashboard-card border-left-success h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Livres Publiés
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ metrics.content.published_books|default:0 }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                +{{ metrics.content.new_books_period|default:0 }} nouveaux
+                                <br>Note moyenne: {{ metrics.content.average_rating|floatformat:1 }}/5
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="metric-icon bg-success text-white">
+                                <i class="fas fa-book"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lecture -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card dashboard-card border-left-info h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Sessions de Lecture
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ metrics.reading.active_sessions_period|default:0 }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                {{ metrics.reading.completion_rate|default:0 }}% terminées
+                                <br>{{ metrics.reading.pages_read_period|default:0 }} pages lues
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="metric-icon bg-info text-white">
+                                <i class="fas fa-bookmark"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Revenus -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card dashboard-card border-left-warning h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Revenus Estimés (FCFA)
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ metrics.revenue.estimated_monthly_revenue|floatformat:0 }}
+                            </div>
+                            <div class="text-xs text-muted">
+                                {{ metrics.revenue.premium_users }} utilisateurs premium
+                                <br>{{ metrics.revenue.conversion_rate }}% conversion
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="metric-icon bg-warning text-white">
+                                <i class="fas fa-coins"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphiques et données détaillées -->
+    <div class="row">
+        <!-- Répartition des utilisateurs par pays -->
+        <div class="col-xl-4 col-lg-6 mb-4">
+            <div class="card dashboard-card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-globe-africa me-2"></i>Utilisateurs par Pays
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="countryChart" width="100" height="100"></canvas>
+                    <div class="mt-3">
+                        {% for country, count in metrics.users.country_breakdown.items %}
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>{{ country }}</span>
+                            <span class="badge bg-primary">{{ count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- État des services -->
+        <div class="col-xl-4 col-lg-6 mb-4">
+            <div class="card dashboard-card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-server me-2"></i>État des Services
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for service, status in services_status.items %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>{{ service|title }}</span>
+                        <span class="status-{% if status == 'healthy' %}healthy{% elif status == 'warning' %}warning{% else %}error{% endif %}">
+                            <i class="fas fa-circle me-1"></i>{{ status|title }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                    <hr>
+                    <div class="text-center mt-3">
+                        <div class="text-success">
+                            <i class="fas fa-check-circle fa-2x"></i>
+                            <p class="mt-2 mb-0">Tous les services opérationnels</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Paiements mobiles africains -->
+        <div class="col-xl-4 col-lg-12 mb-4">
+            <div class="card dashboard-card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-mobile-alt me-2"></i>Paiements Mobiles
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% for provider, percentage in metrics.revenue.payment_method_adoption.items %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>{{ provider }}</span>
+                            <span>{{ percentage }}%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar 
+                                {% if forloop.counter0 == 0 %}bg-warning
+                                {% elif forloop.counter0 == 1 %}bg-info
+                                {% elif forloop.counter0 == 2 %}bg-success
+                                {% else %}bg-secondary
+                                {% endif %}" 
+                                style="width: {{ percentage }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Livres populaires et tendances -->
+    <div class="row">
+        <div class="col-xl-8 mb-4">
+            <div class="card dashboard-card">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-chart-line me-2"></i>Tendances de Lecture
+                    </h6>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary active" onclick="showChart('daily')">Quotidien</button>
+                        <button class="btn btn-outline-primary" onclick="showChart('weekly')">Hebdomadaire</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart" width="100" height="40"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4 mb-4">
+            <div class="card dashboard-card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-star me-2"></i>Livres Populaires
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if metrics.content.popular_books %}
+                        {% for book in metrics.content.popular_books %}
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <div class="font-weight-bold">{{ book.title|truncatechars:30 }}</div>
+                                <small class="text-muted">{{ book.view_count }} vues</small>
+                            </div>
+                            <span class="badge bg-success">{{ book.download_count }} DL</span>
+                        </div>
+                        {% if not forloop.last %}<hr class="my-2">{% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted text-center">Aucune donnée disponible</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Métriques africaines spécifiques -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card dashboard-card">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-globe-africa me-2"></i>Métriques Africaines Spécialisées
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 text-center">
+                            <div class="h4 text-success">{{ metrics.platform.african_users_percentage }}%</div>
+                            <p class="text-muted mb-0">Utilisateurs Africains</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="h4 text-info">{{ metrics.platform.performance_metrics.avg_response_time_africa }}</div>
+                            <p class="text-muted mb-0">Temps de Réponse Moyen</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="h4 text-warning">{{ metrics.platform.performance_metrics.offline_sync_success_rate }}</div>
+                            <p class="text-muted mb-0">Synchronisation Hors-ligne</p>
+                        </div>
+                        <div class="col-md-3 text-center">
+                            <div class="h4 text-primary">{{ metrics.platform.performance_metrics.mobile_optimization_score }}</div>
+                            <p class="text-muted mb-0">Optimisation Mobile</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Configuration des graphiques
+let countryChart, trendChart;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+});
+
+function initializeCharts() {
+    // Graphique par pays
+    const countryCtx = document.getElementById('countryChart').getContext('2d');
+    const countryData = {{ metrics.users.country_breakdown|safe }};
+    
+    countryChart = new Chart(countryCtx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(countryData),
+            datasets: [{
+                data: Object.values(countryData),
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+                    '#9966FF', '#FF9F40', '#FF6384', '#36A2EB'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Graphique de tendances (simulation)
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    trendChart = new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: generateDateLabels(7),
+            datasets: [{
+                label: 'Sessions de lecture',
+                data: generateRandomData(7, 100, 300),
+                borderColor: '#36A2EB',
+                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Nouveaux utilisateurs',
+                data: generateRandomData(7, 20, 50),
+                borderColor: '#FF6384',
+                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function generateDateLabels(days) {
+    const labels = [];
+    for (let i = days - 1; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        labels.push(date.toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' }));
+    }
+    return labels;
+}
+
+function generateRandomData(count, min, max) {
+    const data = [];
+    for (let i = 0; i < count; i++) {
+        data.push(Math.floor(Math.random() * (max - min + 1)) + min);
+    }
+    return data;
+}
+
+function changePeriod() {
+    const period = document.getElementById('periodSelect').value;
+    window.location.href = `?period=${period}`;
+}
+
+function refreshDashboard() {
+    const icon = document.getElementById('refreshIcon');
+    icon.classList.add('refresh-indicator');
+    icon.style.display = 'inline-block';
+    
+    setTimeout(() => {
+        window.location.reload();
+    }, 1000);
+}
+
+function exportData() {
+    const period = document.getElementById('periodSelect').value;
+    window.open(`/admin/dashboard/export/?period=${period}&format=json`, '_blank');
+}
+
+function showChart(type) {
+    // Simulation du changement de vue
+    document.querySelectorAll('.btn-group .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // Ici on pourrait charger de nouvelles données via AJAX
+    console.log(`Affichage des données ${type}`);
+}
+
+// Auto-refresh toutes les 5 minutes
+setInterval(() => {
+    if (document.hidden) return; // Ne pas rafraîchir si l'onglet n'est pas visible
+    
+    fetch(`/admin/dashboard/api/metrics/?period={{ period_days }}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mettre à jour les métriques sans recharger la page
+                updateMetrics(data.data);
+            }
+        })
+        .catch(error => console.log('Erreur lors de la mise à jour:', error));
+}, 300000); // 5 minutes
+
+function updateMetrics(data) {
+    // Mettre à jour les valeurs affichées
+    // Cette fonction pourrait être étendue pour une mise à jour plus dynamique
+    console.log('Mise à jour des métriques:', data);
+}
+</script>
+{% endblock %}
