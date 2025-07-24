@@ -28,7 +28,7 @@ def handle_reading_session_save(sender, instance, created, **kwargs):
     """Gère la sauvegarde des sessions de lecture"""
     
     if created:
-        logger.info(f"Nouvelle session de lecture créée: {instance.user.username} - {instance.book.title}")
+        logger.info(f"Nouvelle session de lecture créée: {instance.user.username} - {instance.book_title}")
         
         # Invalider le cache des statistiques
         cache_key = f"reading_stats_{instance.user.id}"
@@ -40,7 +40,7 @@ def handle_reading_session_save(sender, instance, created, **kwargs):
     else:
         # Session mise à jour
         if instance.status == 'completed' and instance.end_time:
-            logger.info(f"Lecture terminée: {instance.user.username} - {instance.book.title}")
+            logger.info(f"Lecture terminée: {instance.user.username} - {instance.book_title}")
             
             # Envoyer le signal de milestone
             reading_milestone_reached.send(
@@ -62,7 +62,7 @@ def handle_reading_session_save(sender, instance, created, **kwargs):
 def handle_reading_session_delete(sender, instance, **kwargs):
     """Gère la suppression des sessions de lecture"""
     
-    logger.info(f"Session de lecture supprimée: {instance.user.username} - {instance.book.title}")
+    logger.info(f"Session de lecture supprimée: {instance.user.username} - {instance.book_title}")
     
     # Invalider le cache des statistiques
     cache_key = f"reading_stats_{instance.user.id}"
@@ -116,7 +116,7 @@ def handle_bookmark_save(sender, instance, created, **kwargs):
     if created:
         logger.info(
             f"Nouveau signet créé: {instance.user.username} - "
-            f"{instance.book.title} - Page {instance.page_number}"
+            f"{instance.book_title} - Page {instance.page_number}"
         )
         
         # Vérifier les milestones de signets
@@ -202,7 +202,7 @@ def handle_reading_milestone(sender, user, milestone_type, milestone_value=None,
             try:
                 send_mail(
                     subject='Livre terminé !',
-                    message=f'Félicitations ! Vous avez terminé la lecture de "{session.book.title}".\n\n'
+                    message=f'Félicitations ! Vous avez terminé la lecture de "{session.book_title}".\n\n'
                            f'Temps de lecture: {session.total_reading_time}\n'
                            f'Pages lues: {session.total_pages_read}',
                     from_email=settings.DEFAULT_FROM_EMAIL,

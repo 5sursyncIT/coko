@@ -345,8 +345,9 @@ def create_test_data():
         for book in books[:3]:
             session, created = ReadingSession.objects.get_or_create(
                 user=user,
-                book=book,
+                book_uuid=book.id,
                 defaults={
+                    'book_title': book.title,
                     'status': 'active',
                     'device_type': 'web',
                     'current_page': (hash(f"{user.id}{book.id}") % 50) + 1,
@@ -362,8 +363,9 @@ def create_test_data():
         for book in books[:4]:
             bookmark, created = Bookmark.objects.get_or_create(
                 user=user,
-                book=book,
+                book_uuid=book.id,
                 defaults={
+                    'book_title': book.title,
                     'type': 'bookmark',
                     'title': f"Signet dans {book.title}",
                     'page_number': (hash(f"{user.id}{book.id}") % 100) + 1,
@@ -397,9 +399,10 @@ def create_test_data():
             for interaction_type in interaction_types[:2]:  # Seulement view et download
                 interaction, created = UserInteraction.objects.get_or_create(
                     user=user,
-                    book=book,
+                    book_uuid=book.id,
                     interaction_type=interaction_type,
                     defaults={
+                        'book_title': book.title,
                         'session_id': str(uuid.uuid4()),
                         'device_type': 'desktop',
                         'interaction_value': 1.0 if interaction_type == 'view' else 5.0,
@@ -411,8 +414,9 @@ def create_test_data():
     print("Création des vecteurs de livres...")
     for book in books:
         vector, created = BookVector.objects.get_or_create(
-            book=book,
+            book_uuid=book.id,
             defaults={
+                'book_title': book.title,
                 'content_vector': [0.1, 0.2, 0.3, 0.4, 0.5] * 20,  # Vecteur factice de 100 dimensions
                 'genre_vector': [0.8, 0.2, 0.0, 0.0, 0.0],
                 'author_vector': [0.9, 0.1, 0.0, 0.0, 0.0],
