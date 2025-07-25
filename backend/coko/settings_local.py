@@ -202,4 +202,65 @@ AFRICAN_MONITORING = {
     'CLEANUP_INTERVAL': 86400  # 24 heures
 }
 
+# Configuration du système de facturation Coko
+BILLING_SETTINGS = {
+    'ENABLED': True,
+    'DEFAULT_CURRENCY': 'XOF',  # Franc CFA pour l'Afrique de l'Ouest
+    'SUPPORTED_CURRENCIES': ['XOF', 'EUR', 'USD', 'MAD', 'EGP'],
+    'INVOICE_PREFIX': 'COKO',
+    'INVOICE_NUMBER_LENGTH': 8,
+    'PAYMENT_PROVIDERS': {
+        'STRIPE': {
+            'ENABLED': True,
+            'PUBLISHABLE_KEY': os.environ.get('STRIPE_PUBLISHABLE_KEY', ''),
+            'SECRET_KEY': os.environ.get('STRIPE_SECRET_KEY', ''),
+            'WEBHOOK_SECRET': os.environ.get('STRIPE_WEBHOOK_SECRET', ''),
+            'SANDBOX': True
+        },
+        'PAYPAL': {
+            'ENABLED': True,
+            'CLIENT_ID': os.environ.get('PAYPAL_CLIENT_ID', ''),
+            'CLIENT_SECRET': os.environ.get('PAYPAL_CLIENT_SECRET', ''),
+            'SANDBOX': True
+        },
+        'ORANGE_MONEY': {
+            'ENABLED': True,
+            'API_KEY': os.environ.get('ORANGE_MONEY_API_KEY', ''),
+            'SECRET_KEY': os.environ.get('ORANGE_MONEY_SECRET_KEY', ''),
+            'SANDBOX': True
+        },
+        'MTN_MOMO': {
+            'ENABLED': True,
+            'API_KEY': os.environ.get('MTN_MOMO_API_KEY', ''),
+            'SECRET_KEY': os.environ.get('MTN_MOMO_SECRET_KEY', ''),
+            'SANDBOX': True
+        }
+    },
+    'ROYALTY_SETTINGS': {
+        'DEFAULT_RATE': 0.15,  # 15% par défaut
+        'MINIMUM_PAYOUT': 10000,  # 10,000 XOF minimum
+        'PAYOUT_SCHEDULE': 'monthly'
+    },
+    'RECURRING_BILLING': {
+        'ENABLED': True,
+        'RETRY_ATTEMPTS': 3,
+        'RETRY_DELAY_DAYS': [1, 3, 7]
+    },
+    'NOTIFICATIONS': {
+        'SEND_INVOICE_EMAILS': True,
+        'SEND_PAYMENT_CONFIRMATIONS': True,
+        'SEND_OVERDUE_NOTICES': True,
+        'SEND_ROYALTY_NOTIFICATIONS': True
+    },
+    'REPORTS': {
+        'GENERATE_MONTHLY': True,
+        'GENERATE_QUARTERLY': True,
+        'AUTO_EXPORT_PDF': True
+    }
+}
+
+# Ajouter le middleware de facturation
+MIDDLEWARE.append('shared_models.billing_integration.BillingMiddleware')
+
 print("🔧 Configuration locale chargée - utilisation de SQLite uniquement avec optimisations africaines")
+print("💰 Système de facturation Coko activé avec support des paiements mobiles africains")

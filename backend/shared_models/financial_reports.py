@@ -4,15 +4,14 @@ Analyse des revenus, transactions et performance des providers
 """
 
 from django.db import models
-from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.conf import settings
 from django.db.models import Sum, Count, Avg, Q
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Any, Optional
 import json
-
-User = get_user_model()
+import uuid
 
 
 class PaymentTransaction(models.Model):
@@ -44,8 +43,8 @@ class PaymentTransaction(models.Model):
         ('tip', 'Pourboire auteur')
     ]
     
-    id = models.UUIDField(primary_key=True, default=models.UUIDField().default, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions')
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='transactions')
     
     # Détails de la transaction
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -242,6 +241,9 @@ class FinancialReport:
             hourly_distribution[hour] = hour_count
         
         # Taux de conversion par pays
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
         conversion_by_country = {}
         for country_code in ['SN', 'CI', 'ML', 'BF', 'NG', 'GH']:
             country_users = User.objects.filter(country=country_code).count()

@@ -7,6 +7,13 @@ sans créer de dépendances directes entre services.
 from django.db import models
 import uuid
 
+# Import des modèles de facturation
+from .billing import (
+    Invoice, InvoiceItem, AuthorRoyalty, RecurringBilling, 
+    BillingConfiguration
+)
+from .financial_reports import PaymentTransaction
+
 
 class BookReference(models.Model):
     """
