@@ -131,9 +131,6 @@ class Migration(migrations.Migration):
                         choices=[
                             ("fr", "Français"),
                             ("en", "English"),
-                            ("wo", "Wolof"),
-                            ("bm", "Bambara"),
-                            ("ln", "Lingala"),
                         ],
                         default="fr",
                         max_length=5,
@@ -327,9 +324,6 @@ class Migration(migrations.Migration):
                         choices=[
                             ("fr", "Français"),
                             ("en", "English"),
-                            ("wo", "Wolof"),
-                            ("bm", "Bambara"),
-                            ("ln", "Lingala"),
                         ],
                         default="fr",
                         max_length=5,

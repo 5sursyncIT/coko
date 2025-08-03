@@ -194,7 +194,7 @@ class AfricanMetricsView(TemplateView):
                 'mobile_performance': '89%'
             },
             'localization': {
-                'supported_languages': ['Français', 'Wolof', 'Bambara', 'Lingala'],
+                'supported_languages': ['Français', 'English'],
                 'african_content_percentage': '65%',
                 'local_authors': 156
             },

@@ -10,9 +10,6 @@ class User(AbstractUser):
     LANGUAGE_CHOICES = [
         ('fr', 'Français'),
         ('en', 'English'),
-        ('wo', 'Wolof'),
-        ('bm', 'Bambara'),
-        ('ln', 'Lingala'),
     ]
     
     COUNTRY_CHOICES = [

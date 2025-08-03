@@ -1,15 +1,27 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Initialize environment variables
+env = environ.Env(
+    # Set casting, default value
+    DEBUG=(bool, False),
+    USE_SQLITE=(bool, False),
+    ENABLE_AFRICAN_OPTIMIZATIONS=(bool, True),
+)
+
+# Read .env file
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
+SECRET_KEY = env('SECRET_KEY', default='django-insecure-dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
@@ -79,24 +91,74 @@ ASGI_APPLICATION = 'coko.asgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    },
-    'auth_db': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'auth_db.sqlite3',
-    },
-    'catalog_db': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'catalog_db.sqlite3',
-    },
-    'reading_db': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'reading_db.sqlite3',
-    },
-}
+
+# Check if we should use SQLite for development
+USE_SQLITE = env('USE_SQLITE', default=DEBUG)
+
+if USE_SQLITE:
+    # SQLite configuration for development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        },
+        'auth_db': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'auth_db.sqlite3',
+        },
+        'catalog_db': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'catalog_db.sqlite3',
+        },
+        'reading_db': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'reading_db.sqlite3',
+        },
+    }
+else:
+    # PostgreSQL configuration for production
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('DB_NAME', default='coko_main'),
+            'USER': env('DB_USER', default='postgres'),
+            'PASSWORD': env('DB_PASSWORD', default='postgres'),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+            'ATOMIC_REQUESTS': True,
+            'CONN_MAX_AGE': 60,
+        },
+        'auth_db': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('AUTH_DB_NAME', default='coko_auth'),
+            'USER': env('DB_USER', default='postgres'),
+            'PASSWORD': env('DB_PASSWORD', default='postgres'),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+            'ATOMIC_REQUESTS': True,
+            'CONN_MAX_AGE': 60,
+        },
+        'catalog_db': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('CATALOG_DB_NAME', default='coko_catalog'),
+            'USER': env('DB_USER', default='postgres'),
+            'PASSWORD': env('DB_PASSWORD', default='postgres'),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+            'ATOMIC_REQUESTS': True,
+            'CONN_MAX_AGE': 60,
+        },
+        'reading_db': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('READING_DB_NAME', default='coko_reading'),
+            'USER': env('DB_USER', default='postgres'),
+            'PASSWORD': env('DB_PASSWORD', default='postgres'),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+            'ATOMIC_REQUESTS': True,
+            'CONN_MAX_AGE': 60,
+        },
+    }
 
 # Database routing
 DATABASE_ROUTERS = ['coko.db_router.DatabaseRouter']
@@ -131,8 +193,6 @@ USE_TZ = True
 LANGUAGES = [
     ('fr', 'Français'),
     ('en', 'English'),
-    ('wo', 'Wolof'),
-    ('ar', 'العربية'),
 ]
 
 # Static files (CSS, JavaScript, Images)

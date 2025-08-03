@@ -134,20 +134,9 @@ result = manager.initiate_payment(
 #### Langues supportées
 1. **Français** (280M locuteurs) - 25 pays
 2. **Anglais** (237M locuteurs) - 21 pays
-3. **Arabe** (422M locuteurs) - 10 pays
-4. **Portugais** (32M locuteurs) - 6 pays
-5. **Swahili** (200M locuteurs) - 7 pays
-6. **Hausa** (70M locuteurs) - 6 pays
-7. **Yoruba** (45M locuteurs) - 3 pays
-8. **Igbo** (27M locuteurs) - Nigeria
-9. **Amharique** (57M locuteurs) - Éthiopie
-10. **Zulu** (12M locuteurs) - Afrique du Sud
-11. **Xhosa** (8M locuteurs) - Afrique du Sud
-12. **Afrikaans** (7M locuteurs) - Afrique du Sud, Namibie
 
 #### Fonctionnalités
 - Détection automatique de langue
-- Support RTL pour l'arabe
 - Polices optimisées par script
 - Claviers virtuels adaptés
 - Localisation des formats (dates, nombres, devises)

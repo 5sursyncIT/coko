@@ -127,16 +127,6 @@ USE_TZ = True
 LANGUAGES = [
     ('fr', 'Français'),
     ('en', 'English'),
-    ('ar', 'العربية'),
-    ('pt', 'Português'),
-    ('sw', 'Kiswahili'),
-    ('ha', 'Harshen Hausa'),
-    ('yo', 'Èdè Yorùbá'),
-    ('ig', 'Asụsụ Igbo'),
-    ('am', 'አማርኛ'),
-    ('zu', 'isiZulu'),
-    ('xh', 'isiXhosa'),
-    ('af', 'Afrikaans'),
 ]
 
 # Répertoires de traduction

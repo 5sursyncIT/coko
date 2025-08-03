@@ -10,7 +10,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     
     # Dashboard unifié et back-office amélioré
-    path('admin/', include('shared_models.urls')),
+    path('dashboard/', include('shared_models.urls')),
     
     # API endpoints
     path('api/v1/auth/', include('auth_service.urls')),

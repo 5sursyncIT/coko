@@ -8,7 +8,8 @@
       "Bash(venvScripts:*)",
       "Bash(source:*)",
       "Bash(pip install:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "WebFetch(domain:www.youscribe.com)"
     ],
     "deny": []
   }

@@ -50,157 +50,14 @@ class AfricanLanguageManager:
                 'font_family': 'system-ui, -apple-system, sans-serif',
                 'keyboard_layout': 'qwerty'
             },
-            'ar': {
-                'name': 'Arabic',
-                'native_name': 'العربية',
-                'code': 'ar',
-                'iso_639_1': 'ar',
-                'iso_639_2': 'ara',
-                'direction': 'rtl',
-                'countries': ['DZ', 'EG', 'LY', 'MA', 'SD', 'TN', 'TD', 'DJ', 'SO', 'ER'],
-                'speakers': 422000000,
-                'literacy_rate': 0.75,
-                'digital_presence': 'high',
-                'font_family': 'Noto Sans Arabic, Amiri, system-ui, sans-serif',
-                'keyboard_layout': 'arabic'
-            },
-            'pt': {
-                'name': 'Portuguese',
-                'native_name': 'Português',
-                'code': 'pt',
-                'iso_639_1': 'pt',
-                'iso_639_2': 'por',
-                'direction': 'ltr',
-                'countries': ['AO', 'CV', 'GW', 'MZ', 'ST', 'TL'],
-                'speakers': 32000000,
-                'literacy_rate': 0.60,
-                'digital_presence': 'medium',
-                'font_family': 'system-ui, -apple-system, sans-serif',
-                'keyboard_layout': 'qwerty'
-            },
+
             
-            # Langues africaines principales
-            'sw': {
-                'name': 'Swahili',
-                'native_name': 'Kiswahili',
-                'code': 'sw',
-                'iso_639_1': 'sw',
-                'iso_639_2': 'swa',
-                'direction': 'ltr',
-                'countries': ['KE', 'TZ', 'UG', 'RW', 'BI', 'CD', 'MZ'],
-                'speakers': 200000000,
-                'literacy_rate': 0.55,
-                'digital_presence': 'medium',
-                'font_family': 'Noto Sans, system-ui, sans-serif',
-                'keyboard_layout': 'qwerty'
-            },
-            'ha': {
-                'name': 'Hausa',
-                'native_name': 'Harshen Hausa',
-                'code': 'ha',
-                'iso_639_1': 'ha',
-                'iso_639_2': 'hau',
-                'direction': 'ltr',
-                'countries': ['NG', 'NE', 'GH', 'CM', 'TD', 'SD'],
-                'speakers': 70000000,
-                'literacy_rate': 0.45,
-                'digital_presence': 'low',
-                'font_family': 'Noto Sans, system-ui, sans-serif',
-                'keyboard_layout': 'qwerty'
-            },
-            'yo': {
-                'name': 'Yoruba',
-                'native_name': 'Èdè Yorùbá',
-                'code': 'yo',
-                'iso_639_1': 'yo',
-                'iso_639_2': 'yor',
-                'direction': 'ltr',
-                'countries': ['NG', 'BJ', 'TG'],
-                'speakers': 45000000,
-                'literacy_rate': 0.40,
-                'digital_presence': 'low',
-                'font_family': 'Noto Sans, system-ui, sans-serif',
-                'keyboard_layout': 'qwerty',
-                'special_chars': ['ẹ', 'ọ', 'ṣ', 'ẹ́', 'ọ́', 'ṣ́']
-            },
-            'ig': {
-                'name': 'Igbo',
-                'native_name': 'Asụsụ Igbo',
-                'code': 'ig',
-                'iso_639_1': 'ig',
-                'iso_639_2': 'ibo',
-                'direction': 'ltr',
-                'countries': ['NG'],
-                'speakers': 27000000,
-                'literacy_rate': 0.35,
-                'digital_presence': 'low',
-                'font_family': 'Noto Sans, system-ui, sans-serif',
-                'keyboard_layout': 'qwerty',
-                'special_chars': ['ị', 'ọ', 'ụ', 'ṅ', 'ṇ']
-            },
-            'am': {
-                'name': 'Amharic',
-                'native_name': 'አማርኛ',
-                'code': 'am',
-                'iso_639_1': 'am',
-                'iso_639_2': 'amh',
-                'direction': 'ltr',
-                'countries': ['ET'],
-                'speakers': 57000000,
-                'literacy_rate': 0.50,
-                'digital_presence': 'medium',
-                'font_family': 'Noto Sans Ethiopic, system-ui, sans-serif',
-                'keyboard_layout': 'ethiopic',
-                'script': 'ethiopic'
-            },
-            'zu': {
-                'name': 'Zulu',
-                'native_name': 'isiZulu',
-                'code': 'zu',
-                'iso_639_1': 'zu',
-                'iso_639_2': 'zul',
-                'direction': 'ltr',
-                'countries': ['ZA'],
-                'speakers': 12000000,
-                'literacy_rate': 0.65,
-                'digital_presence': 'low',
-                'font_family': 'Noto Sans, system-ui, sans-serif',
-                'keyboard_layout': 'qwerty'
-            },
-            'xh': {
-                'name': 'Xhosa',
-                'native_name': 'isiXhosa',
-                'code': 'xh',
-                'iso_639_1': 'xh',
-                'iso_639_2': 'xho',
-                'direction': 'ltr',
-                'countries': ['ZA'],
-                'speakers': 8000000,
-                'literacy_rate': 0.60,
-                'digital_presence': 'low',
-                'font_family': 'Noto Sans, system-ui, sans-serif',
-                'keyboard_layout': 'qwerty'
-            },
-            'af': {
-                'name': 'Afrikaans',
-                'native_name': 'Afrikaans',
-                'code': 'af',
-                'iso_639_1': 'af',
-                'iso_639_2': 'afr',
-                'direction': 'ltr',
-                'countries': ['ZA', 'NA'],
-                'speakers': 7000000,
-                'literacy_rate': 0.85,
-                'digital_presence': 'medium',
-                'font_family': 'system-ui, -apple-system, sans-serif',
-                'keyboard_layout': 'qwerty'
-            }
+
         }
         
         # Configuration des polices par script
         self.font_configs = {
             'latin': 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-            'arabic': '"Noto Sans Arabic", "Amiri", "Scheherazade", system-ui, sans-serif',
             'ethiopic': '"Noto Sans Ethiopic", "Abyssinica SIL", system-ui, sans-serif',
             'default': 'system-ui, -apple-system, sans-serif'
         }
@@ -352,21 +209,7 @@ class AfricanLanguageManager:
         /* Polices spéciales pour certains scripts */
         """
         
-        if config['script'] == 'arabic':
-            css += f"""
-        html[lang="{lang_code}"] {{
-            font-feature-settings: "liga" 1, "calt" 1, "kern" 1;
-            text-rendering: optimizeLegibility;
-        }}
-        
-        html[lang="{lang_code}"] input, 
-        html[lang="{lang_code}"] textarea {{
-            font-family: {config['font_family']};
-            direction: rtl;
-        }}
-        """
-        
-        elif config['script'] == 'ethiopic':
+        if config['script'] == 'ethiopic':
             css += f"""
         html[lang="{lang_code}"] {{
             line-height: 1.6;
@@ -401,12 +244,7 @@ class AfricanLanguageManager:
                 'special_keys': ['à', 'é', 'è', 'ç', 'ù'],
                 'direction': 'ltr'
             },
-            'arabic': {
-                'type': 'arabic',
-                'special_keys': ['ء', 'آ', 'أ', 'ؤ', 'إ', 'ئ'],
-                'direction': 'rtl',
-                'script': 'arabic'
-            },
+
             'ethiopic': {
                 'type': 'ethiopic',
                 'special_keys': ['ሀ', 'ለ', 'ሐ', 'መ', 'ሠ', 'ረ'],
